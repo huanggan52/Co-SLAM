@@ -9,5 +9,5 @@ grid:
 data:
   datadir: /mnt/nas_7/datasets/ScanNet/scans/scene0059_00
   trainskip: 1
-  /mnt/nas_8/group/huanggan/Co-SLAM/ScanNet/scene0059_00
+  output: /mnt/nas_8/group/huanggan/Co-SLAM/ScanNet/scene0059_00
   exp_name: demo

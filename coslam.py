@@ -1,4 +1,6 @@
 import os
+os.environ["OMP_NUM_THREADS"] = "1" # noqa
+os.environ["MKL_NUM_THREADS"] = "1" # noqa
 #os.environ['TCNN_CUDA_ARCHITECTURES'] = '86'
 
 # Package imports

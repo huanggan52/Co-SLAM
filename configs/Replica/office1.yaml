@@ -6,7 +6,7 @@ mapping:
 
 
 data:
-  datadir: data/Replica/office1
+  datadir: /mnt/nas_8/datasets/Replica/office1
   trainskip: 1
-  output: output/Replica/office1
+  output: /mnt/nas_8/group/huanggan/Co-SLAM/Replica/office1
   exp_name: demo

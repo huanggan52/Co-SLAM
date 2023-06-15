@@ -7,7 +7,7 @@ grid:
   hash_size: 12 # 0.13
 
 data:
-  datadir: ./data/scannet/scene0059_00
+  datadir: /mnt/nas_7/datasets/ScanNet/scans/scene0059_00
   trainskip: 1
-  output: output/scannet/scene0059_00
+  /mnt/nas_8/group/huanggan/Co-SLAM/ScanNet/scene0059_00
   exp_name: demo

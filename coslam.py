@@ -114,6 +114,17 @@ class CoSLAM():
         torch.save(save_dict, save_path)
         print('Save the checkpoint')
 
+    def save_pose(self, save_path):
+        '''
+        Save the estimated pose
+        '''
+        est_c2w_np = np.empty((len(self.est_c2w_data), 4, 4), dtype=np.float32)
+        for i, tensor in self.est_c2w_data.items():
+            matrix = tensor.cpu().numpy()
+            est_c2w_np[i] = matrix
+        np.save(save_path, est_c2w_np)
+        print('Save the estimated pose')
+
     def load_ckpt(self, load_path):
         '''
         Load the model parameters and the estimated pose
@@ -647,8 +658,10 @@ class CoSLAM():
                         key = cv2.waitKey(1)
 
         model_savepath = os.path.join(self.config['data']['output'], self.config['data']['exp_name'], 'checkpoint{}.pt'.format(i)) 
+        pose_savepath = os.path.join(self.config['data']['output'], self.config['data']['exp_name'], 'est_c2w{}.npy'.format(i)) 
         
         self.save_ckpt(model_savepath)
+        self.save_pose(pose_savepath)
         self.save_mesh(i, voxel_size=self.config['mesh']['voxel_final'])
         
         pose_relative = self.convert_relative_pose()

@@ -1,0 +1,10 @@
+inherit_from: configs/Azure/azure.yaml
+mapping:
+  bound: [[-55,5],[-5,2],[-4,15]]
+  marching_cubes_bound: [[-55,5],[-5,2],[-4,15]]
+
+data:
+  datadir: /mnt/nas_8/datasets/voxslam/mmw/mmw4_1
+  trainskip: 1
+  output: /mnt/nas_8/group/huanggan/Co-SLAM/MMW/mmw4_1
+  exp_name: demo

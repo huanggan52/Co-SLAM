@@ -450,10 +450,14 @@ class AzureDataset(BaseDataset):
         return ret
 
     def load_poses(self, path):
-        principal_inertia_transform = np.array([[-0.14031718, -0.875229  , -0.46290958,  0.75258389],
-                                                    [ 0.217254  , -0.48335774,  0.84803655,  0.32966271],
-                                                    [-0.96597712,  0.01842514,  0.2579704 ,  3.28585226],
-                                                    [ 0.        ,  0.        ,  0.        ,  1.        ]])
+        # principal_inertia_transform = np.array([[-0.14031718, -0.875229  , -0.46290958,  0.75258389],
+        #                                             [ 0.217254  , -0.48335774,  0.84803655,  0.32966271],
+        #                                             [-0.96597712,  0.01842514,  0.2579704 ,  3.28585226],
+        #                                             [ 0.        ,  0.        ,  0.        ,  1.        ]])
+        principal_inertia_transform = np.array([[1, 0, 0, 0],
+                                                [0, 1, 0, 0],
+                                                [0, 0, 1, 0],
+                                                [0, 0, 0, 1]])
         principal_inertia_transform[:3, 1] *= -1
         principal_inertia_transform[:3, 2] *= -1
         self.poses = []

@@ -121,6 +121,8 @@ class CoSLAM():
         est_c2w_np = np.empty((len(self.est_c2w_data), 4, 4), dtype=np.float32)
         for i, tensor in self.est_c2w_data.items():
             matrix = tensor.cpu().numpy()
+            matrix[:3, 1] *= -1
+            matrix[:3, 2] *= -1
             est_c2w_np[i] = matrix
         np.save(save_path, est_c2w_np)
         print('Save the estimated pose')

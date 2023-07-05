@@ -208,7 +208,7 @@ class CoSLAM():
         # First frame will always be a keyframe
         self.keyframeDatabase.add_keyframe(batch, filter_depth=self.config['mapping']['filter_depth'])
         if self.config['mapping']['first_mesh']:
-            self.save_mesh(0)
+            self.save_mesh(0, frame_poses=self.est_c2w_data[0], depth_maps=batch['depth'].squeeze(0))
         
         print('First frame mapping done')
         return ret, loss
@@ -591,7 +591,7 @@ class CoSLAM():
         
         self.map_optimizer = optim.Adam(trainable_parameters, betas=(0.9, 0.99))
     
-    def save_mesh(self, i, voxel_size=0.05):
+    def save_mesh(self, i, voxel_size=0.05, frame_poses=None, depth_maps=None):
         mesh_savepath = os.path.join(self.config['data']['output'], self.config['data']['exp_name'], 'mesh_track{}.ply'.format(i))
         if self.config['mesh']['render_color']:
             color_func = self.model.render_surface_color
@@ -603,11 +603,14 @@ class CoSLAM():
                         color_func=color_func, 
                         marching_cube_bound=self.marching_cube_bound, 
                         voxel_size=voxel_size, 
-                        mesh_savepath=mesh_savepath)      
+                        mesh_savepath=mesh_savepath,
+                        frame_poses=frame_poses,
+                        depth_maps=depth_maps)      
         
     def run(self):
         self.create_optimizer()
         data_loader = DataLoader(self.dataset, num_workers=self.config['data']['num_workers'])
+        frame_poses, depth_maps = None, None
 
         # Start Co-SLAM!
         for i, batch in tqdm(enumerate(data_loader)):
@@ -643,9 +646,12 @@ class CoSLAM():
                     self.keyframeDatabase.add_keyframe(batch, filter_depth=self.config['mapping']['filter_depth'])
                     print('add keyframe:',i)
             
-
+                if self.config['mesh']['clean']:
+                    frame_poses = [self.est_c2w_data[i]] if frame_poses is None else frame_poses + [self.est_c2w_data[i]]
+                    depth_maps = [batch['depth'].squeeze(0)] if depth_maps is None else depth_maps + [batch['depth'].squeeze(0)]
+                
                 if i % self.config['mesh']['vis']==0:
-                    self.save_mesh(i, voxel_size=self.config['mesh']['voxel_eval'])
+                    self.save_mesh(i, voxel_size=self.config['mesh']['voxel_eval'], frame_poses=frame_poses, depth_maps=depth_maps)
                     pose_relative = self.convert_relative_pose()
                     pose_evaluation(self.pose_gt, self.est_c2w_data, 1, os.path.join(self.config['data']['output'], self.config['data']['exp_name']), i)
                     pose_evaluation(self.pose_gt, pose_relative, 1, os.path.join(self.config['data']['output'], self.config['data']['exp_name']), i, img='pose_r', name='output_relative.txt')
@@ -664,7 +670,7 @@ class CoSLAM():
         
         self.save_ckpt(model_savepath)
         self.save_pose(pose_savepath)
-        self.save_mesh(i, voxel_size=self.config['mesh']['voxel_final'])
+        self.save_mesh(i, voxel_size=self.config['mesh']['voxel_final'], frame_poses=frame_poses, depth_maps=depth_maps)
         
         pose_relative = self.convert_relative_pose()
         pose_evaluation(self.pose_gt, self.est_c2w_data, 1, os.path.join(self.config['data']['output'], self.config['data']['exp_name']), i)

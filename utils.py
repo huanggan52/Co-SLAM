@@ -2,9 +2,14 @@ import os
 import torch
 import numpy as np
 import trimesh
+import open3d as o3d
 import marching_cubes as mcubes
 from matplotlib import pyplot as plt
+from scipy.spatial import cKDTree
+from datasets.utils import get_camera_rays
 
+rays_d = None
+depth_points = None
 
 #### GO-Surf ####
 def coordinates(voxel_dim, device: torch.device, flatten=True):
@@ -59,9 +64,51 @@ def get_batch_query_fn(query_fn, num_args=1, device=None):
 
     return fn
 
+
+@torch.no_grad()
+def downsample_points(points, voxel_size=0.01):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd = pcd.voxel_down_sample(voxel_size)
+    return np.asarray(pcd.points)
+
+
+@torch.no_grad()
+def get_valid_points(frame_poses, depth_maps):
+    if isinstance(frame_poses, list):
+        all_points = []
+        for i in range(0, len(frame_poses), 10):
+            pose = frame_poses[i].detach().clone().cpu()
+            depth = depth_maps[i].detach().clone()
+            points = rays_d * depth.unsqueeze(-1)
+            points = points.reshape(-1, 3)
+            points = torch.sum(points[..., None, :] * pose[:3, :3], -1) + pose[:3, -1]
+            # points = points @ pose[:3, :3].transpose(0, 1) + pose[:3, 3]
+            if len(all_points) == 0:
+                all_points = points
+            else:
+                all_points = np.concatenate([all_points, points], 0)
+        all_points = downsample_points(all_points)
+        return all_points
+    else:
+        pose = frame_poses.detach().clone().cpu()
+        depth = depth_maps.detach().clone()
+        points = rays_d * depth.unsqueeze(-1)
+        points = points.reshape(-1, 3)
+        points = torch.sum(points[..., None, :] * pose[:3, :3], -1) + pose[:3, -1]
+        global depth_points
+        if depth_points is None:
+            depth_points = points
+        else:
+            depth_points = np.concatenate([depth_points, points], 0)
+        depth_points = downsample_points(depth_points)
+        return depth_points
+
+
 #### NeuralRGBD ####
 @torch.no_grad()
-def extract_mesh(query_fn, config, bounding_box, marching_cube_bound=None, color_func = None, voxel_size=None, resolution=None, isolevel=0.0, scene_name='', mesh_savepath=''):
+def extract_mesh(query_fn, config, bounding_box, marching_cube_bound=None, color_func = None, voxel_size=None, resolution=None, 
+                 isolevel=0.0, scene_name='', mesh_savepath='', frame_poses=None, depth_maps=None):
     '''
     Extracts mesh from the scene model using marching cubes (Adapted from NeuralRGBD)
     '''
@@ -94,7 +141,6 @@ def extract_mesh(query_fn, config, bounding_box, marching_cube_bound=None, color
 
     print('Running Marching Cubes')
     vertices, triangles = mcubes.marching_cubes(raw.squeeze(), isolevel, truncation=3.0)
-    print('done', vertices.shape, triangles.shape)
 
     # normalize vertex positions
     vertices[:, :3] /= np.array([[tx.shape[0] - 1, ty.shape[0] - 1, tz.shape[0] - 1]])
@@ -110,6 +156,26 @@ def extract_mesh(query_fn, config, bounding_box, marching_cube_bound=None, color
 
     # Transform to metric units
     vertices[:, :3] = vertices[:, :3] / config['data']['sc_factor'] - config['data']['translation']
+
+    if config['mesh']['clean'] and frame_poses is not None:
+        print("Cleaning the Mesh")
+        global rays_d
+        if rays_d is None:
+            rays_d = get_camera_rays(config['cam']['H'], config['cam']['W'], config['cam']['fx'], config['cam']['fy'], config['cam']['cx'], config['cam']['cy'])
+        all_points = get_valid_points(frame_poses, depth_maps)
+        kdtree = cKDTree(all_points)
+
+        point_mask = kdtree.query_ball_point(vertices, voxel_size * 0.5, workers=12, return_length=True)
+        point_mask = point_mask > 0
+
+        triangle_mask = point_mask[triangles.reshape(-1)].reshape(-1, 3).all(-1)
+
+        mask_point_id_map = np.cumsum(point_mask)
+        triangles = triangles[triangle_mask]
+        triangles = mask_point_id_map[triangles] - 1
+        vertices = vertices[point_mask]
+
+    print('done', vertices.shape, triangles.shape)
 
 
     if color_func is not None and not config['mesh']['render_color']:

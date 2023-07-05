@@ -99,4 +99,5 @@ mesh:
   voxel_eval: 0.05
   voxel_final: 0.02
   visualisation: False
+  clean: False
   
